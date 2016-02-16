@@ -96,6 +96,19 @@ var optimizeHtmlTask = function(src, dest) {
     }));
 };
 
+// Transpile all JS to ES5.
+gulp.task('js', function () {
+ return gulp.src(['app/**/*.{js,html}', '!app/bower_components/**/*'])
+   .pipe($.sourcemaps.init())
+   .pipe($.if('*.html', $.crisper({scriptInHead:false}))) // Extract JS from .html files
+   .pipe($.if('*.js', $.babel({
+     presets: ['es2015']
+   })))
+   .pipe($.sourcemaps.write('.'))
+   .pipe(gulp.dest('.tmp/'))
+   .pipe(gulp.dest(dist()));
+});
+
 // Compile and automatically prefix stylesheets
 gulp.task('styles', function() {
   return styleTask('styles', ['**/*.css']);
@@ -158,7 +171,7 @@ gulp.task('fonts', function() {
 // Scan your HTML for assets & optimize them
 gulp.task('html', function() {
   return optimizeHtmlTask(
-    ['app/**/*.html', '!app/{elements,test,bower_components}/**/*.html'],
+    [dist('/**/*.html'), '!' + dist('/{elements,test}/**/*.html')],
     dist());
 });
 
@@ -215,7 +228,7 @@ gulp.task('clean', function() {
 });
 
 // Watch files for changes & reload
-gulp.task('serve', ['styles', 'elements'], function() {
+gulp.task('serve', ['styles', 'elements', 'js'], function() {
   browserSync({
     port: 5000,
     notify: false,
@@ -238,10 +251,10 @@ gulp.task('serve', ['styles', 'elements'], function() {
     }
   });
 
-  gulp.watch(['app/**/*.html', '!app/bower_components/**/*.html'], reload);
+  gulp.watch(['app/**/*.html'], ['js', reload]);
   gulp.watch(['app/styles/**/*.css'], ['styles', reload]);
   gulp.watch(['app/elements/**/*.css'], ['elements', reload]);
-  gulp.watch(['app/scripts/**/*.js'], reload);
+  gulp.watch(['app/{scripts,elements}/**/{*.js,*.html}'], ['js']);
   gulp.watch(['app/images/**/*'], reload);
 });
 
@@ -273,7 +286,7 @@ gulp.task('default', ['clean'], function(cb) {
   // Uncomment 'cache-config' if you are going to use service workers.
   runSequence(
     ['ensureFiles', 'copy', 'styles'],
-    'elements',
+    ['elements', 'js'],
     ['images', 'fonts', 'html'],
     'vulcanize', // 'cache-config',
     cb);
